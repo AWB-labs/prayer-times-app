@@ -210,22 +210,32 @@ export function QiblaScreen() {
   const {
     qiblaBearing,
     deviceHeading,
-    needleAnim,
+    isAligned,
+    isTrueNorth,
+    accuracy,
+    headingAnim,
     loading,
     error,
     sensorAvailable,
   } = useQibla(location.latitude, location.longitude);
 
-  const isAligned =
-    qiblaBearing !== null &&
-    Math.abs(((qiblaBearing - deviceHeading + 540) % 360) - 180) < 5;
-
-  const spin = needleAnim.interpolate({
-    inputRange: [-360, 360],
-    outputRange: ['-360deg', '360deg'],
+  // The cardinal ring and the needle form one rigid assembly: the ring counter-
+  // rotates so N holds real north, and the needle sits at the Qibla bearing
+  // against it. Both read the same animated value, so they can't drift apart.
+  const ringSpin = headingAnim.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['0deg', '-360deg'],
     extrapolate: 'extend',
   });
 
+  const bearing = qiblaBearing ?? 0;
+  const needleSpin = headingAnim.interpolate({
+    inputRange: [0, 360],
+    outputRange: [`${bearing}deg`, `${bearing - 360}deg`],
+    extrapolate: 'extend',
+  });
+
+  const needsCalibration = accuracy !== null && accuracy < 2;
   const accentColor = isAligned ? '#22c55e' : theme.accent;
 
   /* ── Loading / error gates ── */
@@ -308,8 +318,17 @@ export function QiblaScreen() {
                 }}
               />
 
-              {/* Cardinal labels + tick marks */}
-              <CompassRing textColor={theme.text} />
+              {/* Cardinal labels + tick marks, counter-rotated onto real north */}
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  width: COMPASS_SIZE,
+                  height: COMPASS_SIZE,
+                  transform: [{ rotate: ringSpin }],
+                }}
+              >
+                <CompassRing textColor={theme.text} />
+              </Animated.View>
 
               {/* Animated needle */}
               {loading ? (
@@ -324,6 +343,15 @@ export function QiblaScreen() {
                     {error}
                   </Text>
                 </View>
+              ) : !sensorAvailable ? (
+                // Without a heading the needle could only point as though the
+                // phone faced north, which reads as a confident wrong answer.
+                <View style={{ position: 'absolute', width: COMPASS_SIZE, height: COMPASS_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="compass-outline" size={32} color={theme.textMuted} />
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 6, textAlign: 'center', paddingHorizontal: 24 }}>
+                    Compass unavailable
+                  </Text>
+                </View>
               ) : (
                 <Animated.View
                   style={{
@@ -332,7 +360,7 @@ export function QiblaScreen() {
                     height: COMPASS_SIZE,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transform: [{ rotate: spin }],
+                    transform: [{ rotate: needleSpin }],
                   }}
                 >
                   <Needle color={accentColor} aligned={isAligned} />
@@ -399,6 +427,30 @@ export function QiblaScreen() {
             </Text>
           </View>
 
+          {/* ── Calibration hint ── */}
+          {sensorAvailable && needsCalibration && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 12,
+                marginHorizontal: 20,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 14,
+                backgroundColor: 'rgba(245,158,11,0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(245,158,11,0.35)',
+              }}
+            >
+              <Ionicons name="sync-outline" size={16} color="#f59e0b" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#f59e0b', fontSize: 12, lineHeight: 17, flex: 1 }}>
+                Compass needs calibrating — trace a figure-8 with the phone, away from
+                magnets, metal and magnetic cases.
+              </Text>
+            </View>
+          )}
+
           {/* ── Stats cards ── */}
           {!loading && !error && (
             <View style={{ flexDirection: 'row', marginTop: 20, marginHorizontal: 20, gap: 12 }}>
@@ -406,13 +458,17 @@ export function QiblaScreen() {
                 {
                   label: 'Qibla bearing',
                   value: qiblaBearing !== null ? `${qiblaBearing.toFixed(1)}°` : '—',
-                  sub: 'from North',
+                  sub: 'from true north',
                   icon: 'compass-outline' as const,
                 },
                 {
                   label: 'Device heading',
-                  value: sensorAvailable ? `${Math.round(deviceHeading)}°` : '—',
-                  sub: sensorAvailable ? 'magnetic north' : 'no sensor',
+                  value: sensorAvailable ? `${deviceHeading}°` : '—',
+                  sub: !sensorAvailable
+                    ? 'no sensor'
+                    : isTrueNorth
+                    ? 'true north'
+                    : 'magnetic north',
                   icon: 'phone-portrait-outline' as const,
                 },
               ].map((stat) => (
@@ -459,7 +515,7 @@ export function QiblaScreen() {
           )}
 
           <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 24, textAlign: 'center' }}>
-            Powered by AlAdhan.com Qibla API
+            Great-circle bearing to the Kaaba · works offline
           </Text>
         </ScrollView>
       </SafeAreaView>

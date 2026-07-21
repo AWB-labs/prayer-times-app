@@ -1,29 +1,65 @@
 import { useState, useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { Animated, Easing } from 'react-native';
+import * as Location from 'expo-location';
 import { Magnetometer } from 'expo-sensors';
 
-import { fetchQiblaDirection } from '../services/qiblaApi';
+/** Kaaba, Masjid al-Haram. */
+const KAABA_LAT = 21.4224779;
+const KAABA_LON = 39.8261818;
 
-export interface QiblaState {
-  /** Qibla bearing from North (0-360), null while loading */
-  qiblaBearing: number | null;
-  /** Device heading from magnetic north (0-360) */
-  deviceHeading: number;
-  /** Rotation angle the compass needle should render at, in degrees */
-  needleAngle: number;
-  loading: boolean;
-  error: string | null;
-  /** Whether the device magnetometer is available */
-  sensorAvailable: boolean;
-  /** Animated value driving the needle rotation (use with Animated.View) */
-  needleAnim: Animated.Value;
+/** Turns green within this many degrees, and only lets go past the exit angle. */
+const ALIGN_ENTER_DEG = 5;
+const ALIGN_EXIT_DEG = 8;
+
+/** Low-pass factor applied to each reading — lower is steadier but laggier. */
+const SMOOTHING = 0.25;
+
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+const toDeg = (rad: number) => (rad * 180) / Math.PI;
+
+/**
+ * Great-circle initial bearing from a coordinate to the Kaaba, in degrees
+ * clockwise from **true** north. Same spherical formula the AlAdhan endpoint
+ * uses, but it needs no network, so the compass works offline and without the
+ * loading/error states a fetch drags in.
+ */
+export function computeQiblaBearing(latitude: number, longitude: number): number {
+  const phi1 = toRad(latitude);
+  const phi2 = toRad(KAABA_LAT);
+  const deltaLambda = toRad(KAABA_LON - longitude);
+
+  const y = Math.sin(deltaLambda);
+  const x = Math.cos(phi1) * Math.tan(phi2) - Math.sin(phi1) * Math.cos(deltaLambda);
+
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-function computeHeading(x: number, y: number): number {
-  let angle = Math.atan2(y, x) * (180 / Math.PI);
-  angle = 90 - angle;
-  if (angle < 0) angle += 360;
-  return angle % 360;
+/** Signed difference a − b, wrapped to (−180, 180]. */
+function angleDelta(a: number, b: number): number {
+  return ((a - b + 540) % 360) - 180;
+}
+
+export interface QiblaState {
+  /** Qibla bearing from true north (0–360), null until coordinates arrive. */
+  qiblaBearing: number | null;
+  /** Where the top of the device points, in whole degrees. */
+  deviceHeading: number;
+  /** Whether the device is currently pointed at the Qibla (with hysteresis). */
+  isAligned: boolean;
+  /** True when the heading is referenced to true north rather than magnetic. */
+  isTrueNorth: boolean;
+  /** Compass calibration, 0 (unusable) to 3 (high). Null before the first reading. */
+  accuracy: number | null;
+  loading: boolean;
+  error: string | null;
+  /** Whether this device can track heading at all. */
+  sensorAvailable: boolean;
+  /**
+   * Accumulated device heading in degrees, unwrapped so it never jumps at the
+   * 0/360 seam. Both the needle and the cardinal ring derive their rotation
+   * from this single value, which keeps them rigidly in step.
+   */
+  headingAnim: Animated.Value;
 }
 
 export function useQibla(
@@ -32,82 +68,151 @@ export function useQibla(
 ): QiblaState {
   const [qiblaBearing, setQiblaBearing] = useState<number | null>(null);
   const [deviceHeading, setDeviceHeading] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [isAligned, setIsAligned] = useState(false);
+  const [isTrueNorth, setIsTrueNorth] = useState(false);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sensorAvailable, setSensorAvailable] = useState(true);
 
-  const needleAnim = useRef(new Animated.Value(0)).current;
-  const lastAngle = useRef(0);
+  const headingAnim = useRef(new Animated.Value(0)).current;
 
-  // Fetch Qibla direction from API
+  // Read inside the sensor callback, which is subscribed once and must not go
+  // stale when the bearing or alignment changes.
+  const bearingRef = useRef<number | null>(null);
+  const smoothedRef = useRef<number | null>(null);
+  const accumulatedRef = useRef(0);
+  const reportedRef = useRef<number | null>(null);
+  const alignedRef = useRef(false);
+  const accuracyRef = useRef<number | null>(null);
+  const trueNorthRef = useRef<boolean | null>(null);
+
+  // Qibla bearing is pure geometry — no fetch, so it lands with the coordinates.
   useEffect(() => {
-    if (latitude === null || longitude === null) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchQiblaDirection(latitude, longitude)
-      .then((data) => {
-        if (!cancelled) {
-          setQiblaBearing(data.direction);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch Qibla direction');
-          setLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
+    if (latitude === null || longitude === null) {
+      bearingRef.current = null;
+      setQiblaBearing(null);
+      return;
+    }
+    const bearing = computeQiblaBearing(latitude, longitude);
+    bearingRef.current = bearing;
+    setQiblaBearing(bearing);
   }, [latitude, longitude]);
 
-  // Subscribe to magnetometer
   useEffect(() => {
-    let subscription: ReturnType<typeof Magnetometer.addListener> | null = null;
+    let cancelled = false;
+    let subscription: Location.LocationSubscription | null = null;
 
-    Magnetometer.isAvailableAsync().then((available) => {
-      setSensorAvailable(available);
-      if (!available) return;
+    async function subscribe() {
+      try {
+        // expo-location has no heading-capability probe of its own.
+        const available = await Magnetometer.isAvailableAsync();
+        if (cancelled) return;
+        if (!available) {
+          setSensorAvailable(false);
+          return;
+        }
 
-      Magnetometer.setUpdateInterval(150);
-      subscription = Magnetometer.addListener(({ x, y }) => {
-        setDeviceHeading(computeHeading(x, y));
-      });
-    });
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status !== 'granted') {
+          setError('Location permission is needed to read the compass.');
+          return;
+        }
+
+        // watchHeadingAsync is backed by CLLocationManager on iOS and the fused
+        // rotation-vector sensor on Android. Both are tilt-compensated and
+        // OS-calibrated, unlike raw magnetometer x/y, which is only meaningful
+        // when the phone lies perfectly flat.
+        subscription = await Location.watchHeadingAsync((reading) => {
+          if (cancelled) return;
+
+          // trueHeading is -1 where the device can't resolve declination.
+          const usesTrueNorth = reading.trueHeading >= 0;
+          const raw = usesTrueNorth ? reading.trueHeading : reading.magHeading;
+          if (typeof raw !== 'number' || Number.isNaN(raw)) return;
+
+          if (trueNorthRef.current !== usesTrueNorth) {
+            trueNorthRef.current = usesTrueNorth;
+            setIsTrueNorth(usesTrueNorth);
+          }
+
+          // Guard the NaN case: NaN !== NaN would setState on every reading.
+          const level =
+            typeof reading.accuracy === 'number' && !Number.isNaN(reading.accuracy)
+              ? Math.round(reading.accuracy)
+              : null;
+          if (accuracyRef.current !== level) {
+            accuracyRef.current = level;
+            setAccuracy(level);
+          }
+
+          const previous = smoothedRef.current;
+          let smoothed: number;
+
+          if (previous === null) {
+            // Land on the first reading instead of sweeping up from zero.
+            smoothed = raw;
+            accumulatedRef.current = raw;
+            headingAnim.setValue(raw);
+          } else {
+            smoothed = (previous + angleDelta(raw, previous) * SMOOTHING + 360) % 360;
+            // Unwrap, so a 359° → 1° step turns 2° forward rather than 358° back.
+            accumulatedRef.current += angleDelta(smoothed, previous);
+
+            Animated.timing(headingAnim, {
+              toValue: accumulatedRef.current,
+              duration: 120,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }).start();
+          }
+
+          smoothedRef.current = smoothed;
+
+          // Re-render only when the whole-degree readout actually moves; the
+          // rotation itself is driven natively off headingAnim.
+          const rounded = Math.round(smoothed) % 360;
+          if (reportedRef.current !== rounded) {
+            reportedRef.current = rounded;
+            setDeviceHeading(rounded);
+          }
+
+          const bearing = bearingRef.current;
+          if (bearing !== null) {
+            const off = Math.abs(angleDelta(bearing, smoothed));
+            const shouldFlip = alignedRef.current
+              ? off > ALIGN_EXIT_DEG
+              : off < ALIGN_ENTER_DEG;
+            if (shouldFlip) {
+              alignedRef.current = !alignedRef.current;
+              setIsAligned(alignedRef.current);
+            }
+          }
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Could not start the compass.');
+        }
+      }
+    }
+
+    subscribe();
 
     return () => {
+      cancelled = true;
       subscription?.remove();
     };
-  }, []);
-
-  // Animate the needle whenever bearing or heading changes
-  const needleAngle = qiblaBearing !== null ? qiblaBearing - deviceHeading : 0;
-
-  useEffect(() => {
-    // Shortest-path rotation to avoid spinning the wrong way
-    let delta = needleAngle - lastAngle.current;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    const next = lastAngle.current + delta;
-    lastAngle.current = next;
-
-    Animated.spring(needleAnim, {
-      toValue: next,
-      useNativeDriver: true,
-      friction: 6,
-      tension: 40,
-    }).start();
-  }, [needleAngle, needleAnim]);
+  }, [headingAnim]);
 
   return {
     qiblaBearing,
     deviceHeading,
-    needleAngle,
-    loading,
+    isAligned,
+    isTrueNorth,
+    accuracy,
+    loading: latitude === null || longitude === null,
     error,
     sensorAvailable,
-    needleAnim,
+    headingAnim,
   };
 }
