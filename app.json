@@ -21,7 +21,9 @@
       },
       "bundleIdentifier": "com.badry.prayertimes",
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.badry.prayertimes"]
+        "com.apple.security.application-groups": [
+          "group.com.badry.prayertimes"
+        ]
       }
     },
     "android": {
@@ -31,9 +33,6 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.POST_NOTIFICATIONS"
@@ -59,6 +58,29 @@
       ],
       "@bacons/apple-targets",
       "./plugins/withMainAppGroup"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.badry.prayertimes.widget",
+                  "targetName": "widget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.badry.prayertimes"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "0fdc37b7-16fd-495d-8a99-a6ae39055bae"
+      }
+    },
+    "owner": "badry22"
   }
 }
