@@ -1,12 +1,13 @@
 import { Prayer, PrayerName, PrayerTimings } from '../types';
 
+// `icon` values are MaterialCommunityIcons glyph names (from @expo/vector-icons).
 export const PRAYER_CONFIG: { name: PrayerName; arabicName: string; icon: string }[] = [
-  { name: 'Fajr', arabicName: 'الفجر', icon: 'moon' },
-  { name: 'Sunrise', arabicName: 'الشروق', icon: 'sunny' },
-  { name: 'Dhuhr', arabicName: 'الظهر', icon: 'sunny' },
-  { name: 'Asr', arabicName: 'العصر', icon: 'partly-sunny' },
-  { name: 'Maghrib', arabicName: 'المغرب', icon: 'sunset' },
-  { name: 'Isha', arabicName: 'العشاء', icon: 'moon' },
+  { name: 'Fajr', arabicName: 'الفجر', icon: 'weather-sunset-up' },
+  { name: 'Sunrise', arabicName: 'الشروق', icon: 'weather-sunny' },
+  { name: 'Dhuhr', arabicName: 'الظهر', icon: 'white-balance-sunny' },
+  { name: 'Asr', arabicName: 'العصر', icon: 'weather-partly-cloudy' },
+  { name: 'Maghrib', arabicName: 'المغرب', icon: 'weather-sunset-down' },
+  { name: 'Isha', arabicName: 'العشاء', icon: 'weather-night' },
 ];
 
 export function buildPrayerList(timings: PrayerTimings): Prayer[] {

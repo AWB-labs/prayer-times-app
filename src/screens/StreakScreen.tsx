@@ -7,7 +7,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 import { useTheme } from '../context/ThemeContext';
@@ -38,12 +38,12 @@ const PRAYER_ARABIC: Record<StreakPrayerName, string> = {
   Isha: 'العشاء',
 };
 
-const PRAYER_EMOJI: Record<StreakPrayerName, string> = {
-  Fajr: '🌙',
-  Dhuhr: '☀️',
-  Asr: '🌤',
-  Maghrib: '🌇',
-  Isha: '🌃',
+const PRAYER_ICON: Record<StreakPrayerName, string> = {
+  Fajr: 'weather-sunset-up',
+  Dhuhr: 'white-balance-sunny',
+  Asr: 'weather-partly-cloudy',
+  Maghrib: 'weather-sunset-down',
+  Isha: 'weather-night',
 };
 
 const WEEK_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -82,7 +82,7 @@ function SectionLabel({ text }: { text: string }) {
 function FireCard({ streak }: { streak: number }) {
   const { theme } = useTheme();
   const msg = streakMessage(streak);
-  const fireColor = streak > 0 ? '#ff6b35' : theme.textMuted;
+  const fireColor = streak > 0 ? theme.flame : theme.textMuted;
 
   return (
     <View
@@ -91,11 +91,11 @@ function FireCard({ streak }: { streak: number }) {
         borderRadius: 24,
         backgroundColor: theme.surface,
         borderWidth: 1,
-        borderColor: streak > 0 ? '#ff6b3540' : theme.border,
+        borderColor: streak > 0 ? theme.flame + '40' : theme.border,
         padding: 28,
         alignItems: 'center',
         // Glow when active
-        shadowColor: streak > 0 ? '#ff6b35' : 'transparent',
+        shadowColor: streak > 0 ? theme.flame : 'transparent',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: streak > 0 ? 0.25 : 0,
         shadowRadius: 20,
@@ -108,12 +108,12 @@ function FireCard({ streak }: { streak: number }) {
           width: 88,
           height: 88,
           borderRadius: 44,
-          backgroundColor: streak > 0 ? '#ff6b3522' : theme.border,
+          backgroundColor: streak > 0 ? theme.flame + '22' : theme.border,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 12,
           borderWidth: 2,
-          borderColor: streak > 0 ? '#ff6b3550' : theme.border,
+          borderColor: streak > 0 ? theme.flame + '50' : theme.border,
         }}
       >
         <Ionicons
@@ -178,8 +178,11 @@ function TodayPrayers() {
                 gap: 7,
               }}
             >
-              {/* Prayer emoji */}
-              <Text style={{ fontSize: 16 }}>{PRAYER_EMOJI[prayer]}</Text>
+              <MaterialCommunityIcons
+                name={PRAYER_ICON[prayer] as any}
+                size={17}
+                color={done ? theme.accent : theme.textSub}
+              />
 
               <View>
                 <Text
@@ -362,7 +365,7 @@ export function StreakScreen() {
           {/* ── Page title ── */}
           <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Ionicons name="flame" size={26} color="#ff6b35" />
+              <Ionicons name="flame" size={26} color={theme.flame} />
               <Text style={{ color: theme.text, fontSize: 28, fontWeight: '800' }}>
                 Prayer Streak
               </Text>
@@ -409,7 +412,7 @@ export function StreakScreen() {
             />
             <StatCard
               icon="flame"
-              iconColor="#ff6b35"
+              iconColor={theme.flame}
               value={currentStreak}
               label="Current streak"
             />

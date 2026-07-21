@@ -19,7 +19,10 @@
         "NSLocationAlwaysUsageDescription": "Prayer Times needs your location to calculate accurate prayer times for your area.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.prayertimes.app"
+      "bundleIdentifier": "com.badry.prayertimes",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.badry.prayertimes"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +38,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.prayertimes.app"
+      "package": "com.badry.prayertimes"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,12 +56,9 @@
           "sounds": [],
           "enableBackgroundRemoteNotifications": false
         }
-      ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "21957a9f-5c9e-41a6-b3b4-e4d2bd4b99e6"
-      }
-    }
+      ],
+      "@bacons/apple-targets",
+      "./plugins/withMainAppGroup"
+    ]
   }
 }

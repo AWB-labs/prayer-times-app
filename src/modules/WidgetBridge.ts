@@ -1,4 +1,5 @@
-import { NativeModules, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import type { WidgetPayload } from '../utils/widgetPayload';
 
 interface NativeWidgetBridge {
@@ -6,9 +7,9 @@ interface NativeWidgetBridge {
   reloadAllTimelines(): Promise<void>;
 }
 
-const { WidgetBridge: Native } = NativeModules as {
-  WidgetBridge: NativeWidgetBridge | undefined;
-};
+// Registered natively only on iOS (see modules/widget-bridge). Returns null on
+// platforms where the module isn't built, so all calls below no-op safely.
+const Native = requireOptionalNativeModule<NativeWidgetBridge>('WidgetBridge');
 
 export const WidgetBridge = {
   /** Writes prayer data to shared storage and reloads widget timelines. */
