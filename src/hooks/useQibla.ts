@@ -101,6 +101,7 @@ export function useQibla(
   useEffect(() => {
     let cancelled = false;
     let subscription: Location.LocationSubscription | null = null;
+    let positionSubscription: Location.LocationSubscription | null = null;
 
     async function subscribe() {
       try {
@@ -118,6 +119,22 @@ export function useQibla(
           setError('Location permission is needed to read the compass.');
           return;
         }
+
+        // CLHeading.trueHeading is documented as invalid "if location updates are
+        // not currently being generated", and expo's heading watch only ever calls
+        // startUpdatingHeading. Android likewise can't build the GeomagneticField
+        // it derives declination from until a fix lands. Without an active watch
+        // both platforms hand back -1, we fall back to magnetic north, and the
+        // local declination silently becomes a compass error — which is exactly
+        // what true north exists to remove.
+        //
+        // The positions themselves are deliberately unused: this subscription is
+        // here to keep a fix alive so the OS can resolve declination for us.
+        positionSubscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 50 },
+          () => {}
+        );
+        if (cancelled) return;
 
         // watchHeadingAsync is backed by CLLocationManager on iOS and the fused
         // rotation-vector sensor on Android. Both are tilt-compensated and
@@ -201,6 +218,7 @@ export function useQibla(
     return () => {
       cancelled = true;
       subscription?.remove();
+      positionSubscription?.remove();
     };
   }, [headingAnim]);
 

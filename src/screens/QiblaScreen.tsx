@@ -427,6 +427,30 @@ export function QiblaScreen() {
             </Text>
           </View>
 
+          {/* ── Magnetic-fallback warning ── */}
+          {sensorAvailable && accuracy !== null && !isTrueNorth && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 12,
+                marginHorizontal: 20,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 14,
+                backgroundColor: 'rgba(239,68,68,0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(239,68,68,0.35)',
+              }}
+            >
+              <Ionicons name="warning-outline" size={16} color="#ef4444" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#ef4444', fontSize: 12, lineHeight: 17, flex: 1 }}>
+                Reading magnetic north — the device can't resolve true north yet, so the
+                needle is off by the local declination. Step outside for a GPS fix.
+              </Text>
+            </View>
+          )}
+
           {/* ── Calibration hint ── */}
           {sensorAvailable && needsCalibration && (
             <View
