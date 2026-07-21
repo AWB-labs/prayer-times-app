@@ -15,6 +15,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorScreen } from '../components/ErrorScreen';
 import { DateHeader } from '../components/DateHeader';
 import { NextPrayerBanner } from '../components/NextPrayerBanner';
+import { StreakStrip } from '../components/StreakStrip';
 import { PrayerCard } from '../components/PrayerCard';
 
 export function PrayerHomeScreen() {
@@ -68,7 +69,7 @@ export function PrayerHomeScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: 16 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -81,10 +82,11 @@ export function PrayerHomeScreen() {
         >
           <DateHeader date={prayerTimes.data.date} cityName={location.cityName} />
           <NextPrayerBanner prayers={prayers} nextIndex={nextIndex} />
+          <StreakStrip />
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 10 }}>
             <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-            <Text style={{ color: theme.textMuted, fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', marginHorizontal: 12 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginHorizontal: 12 }}>
               Today's Prayers
             </Text>
             <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
@@ -103,13 +105,6 @@ export function PrayerHomeScreen() {
               />
             );
           })}
-
-          <Text style={{ textAlign: 'center', color: theme.textMuted, fontSize: 11, marginTop: 16, letterSpacing: 0.5 }}>
-            Calculation: {prayerTimes.data.meta.method.name}
-          </Text>
-          <Text style={{ textAlign: 'center', color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
-            {prayerTimes.data.meta.timezone}
-          </Text>
         </ScrollView>
       </SafeAreaView>
     </View>

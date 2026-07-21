@@ -28,6 +28,16 @@ export interface AppTheme {
   accentSurface: string;
   /** Translucent accent border */
   accentBorder: string;
+  /** Success / prayer-completed colour */
+  success: string;
+  /** Translucent success surface */
+  successSurface: string;
+  /** Translucent success border */
+  successBorder: string;
+  /** Streak flame colour */
+  flame: string;
+  /** Translucent flame surface */
+  flameSurface: string;
   /** Expo StatusBar style */
   statusBar: 'light' | 'dark';
 }
@@ -48,6 +58,11 @@ export const darkTheme: AppTheme = {
   accentFg: '#000000',
   accentSurface: 'rgba(201,162,39,0.12)',
   accentBorder: 'rgba(201,162,39,0.35)',
+  success: '#22c55e',
+  successSurface: 'rgba(34,197,94,0.12)',
+  successBorder: 'rgba(34,197,94,0.35)',
+  flame: '#ff7a45',
+  flameSurface: 'rgba(255,122,69,0.14)',
   statusBar: 'light',
 };
 
@@ -67,5 +82,10 @@ export const lightTheme: AppTheme = {
   accentFg: '#ffffff',
   accentSurface: 'rgba(138,109,0,0.10)',
   accentBorder: 'rgba(138,109,0,0.25)',
+  success: '#16a34a',
+  successSurface: 'rgba(22,163,74,0.10)',
+  successBorder: 'rgba(22,163,74,0.30)',
+  flame: '#ea580c',
+  flameSurface: 'rgba(234,88,12,0.10)',
   statusBar: 'dark',
 };
