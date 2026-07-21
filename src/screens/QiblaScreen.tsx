@@ -254,7 +254,7 @@ export function QiblaScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={theme.statusBar} />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 40, alignItems: 'center' }}
           showsVerticalScrollIndicator={false}

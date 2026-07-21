@@ -191,7 +191,7 @@ export function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={theme.statusBar} />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* ── Page title ── */}
           <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>

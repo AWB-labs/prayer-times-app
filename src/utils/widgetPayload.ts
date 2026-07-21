@@ -45,13 +45,22 @@ export function buildWidgetPayload(prayerData: PrayerData): WidgetPayload {
 
   // First prayer whose timestamp is still in the future
   let nextPrayerIndex = widgetPrayers.findIndex((p) => p.timestamp > now);
-  if (nextPrayerIndex === -1) nextPrayerIndex = 0; // all passed → wrap to Fajr
+  let nextPrayerTimestamp: number;
+
+  if (nextPrayerIndex === -1) {
+    // All of today's prayers have passed → wrap to tomorrow's Fajr. Without the
+    // day offset the countdown target would sit in the past and read as 0.
+    nextPrayerIndex = 0;
+    nextPrayerTimestamp = widgetPrayers[0].timestamp + 86400;
+  } else {
+    nextPrayerTimestamp = widgetPrayers[nextPrayerIndex].timestamp;
+  }
 
   return {
     prayers: widgetPrayers,
     nextPrayerIndex,
     nextPrayerName: widgetPrayers[nextPrayerIndex].name,
-    nextPrayerTimestamp: widgetPrayers[nextPrayerIndex].timestamp,
+    nextPrayerTimestamp,
     date: todayDateString(baseDate),
   };
 }

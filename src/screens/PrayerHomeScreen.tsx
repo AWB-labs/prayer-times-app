@@ -66,7 +66,9 @@ export function PrayerHomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={theme.statusBar} />
-      <SafeAreaView style={{ flex: 1 }}>
+      {/* Bottom inset is already handled by the tab bar — claiming it here too
+          would leave a strip of `theme.bg` sitting above the navigation bar. */}
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingTop: 4, paddingBottom: 16 }}
