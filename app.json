@@ -29,7 +29,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0e2a"
+        "backgroundColor": "#1a1a1a"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
