@@ -367,13 +367,13 @@ struct PrayerRowView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(row.name)
                     .font(.system(size: 14, weight: row.isNext ? .bold : .medium))
                     .foregroundColor(nameColor)
                 if showsArabic {
                     Text(row.arabicName)
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                         .foregroundColor(.widgetMuted)
                 }
             }
@@ -452,6 +452,7 @@ struct NextPrayerView: View {
                 .font(.system(size: family == .systemSmall ? 18 : 24, weight: .semibold, design: .rounded))
                 .foregroundColor(.widgetGold)
         }
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .containerBackground(.black, for: .widget)
     }
@@ -466,6 +467,10 @@ struct NextPrayerWidget: Widget {
         .configurationDisplayName("Next Prayer")
         .description("Shows the next upcoming prayer and its time.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        // The system's default content margins (~16pt a side) leave these dense
+        // layouts too little height, which makes SwiftUI squeeze the text and clip
+        // the glyph tops. Each view sets its own tighter padding instead.
+        .contentMarginsDisabled()
     }
 }
 
@@ -567,7 +572,8 @@ struct CountdownView: View {
             CountdownStrip(start: entry.start, end: entry.target,
                            showsEndpoints: family != .systemSmall)
         }
-        .padding(.horizontal, family == .systemSmall ? 10 : 16)
+        .padding(.horizontal, family == .systemSmall ? 12 : 16)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .containerBackground(.black, for: .widget)
     }
@@ -582,6 +588,7 @@ struct CountdownWidget: Widget {
         .configurationDisplayName("Prayer Countdown")
         .description("Counts down to the next prayer, second by second.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
@@ -639,7 +646,7 @@ struct ChecklistView: View {
     private var isSmall: Bool { family == .systemSmall }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isSmall ? 5 : 7) {
+        VStack(alignment: .leading, spacing: isSmall ? 4 : 5) {
             HStack {
                 WidgetLabel(text: "TODAY")
                 Spacer()
@@ -663,7 +670,8 @@ struct ChecklistView: View {
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .containerBackground(.black, for: .widget)
     }
@@ -678,6 +686,7 @@ struct PrayerChecklistWidget: Widget {
         .configurationDisplayName("Prayer Checklist")
         .description("Tap to mark each prayer as done, straight from the home screen.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
@@ -764,19 +773,19 @@ struct ScheduleView: View {
                 }
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     // Big square: full countdown header, then every prayer as a checkable row.
     private var largeLayout: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 3) {
+        VStack(spacing: 6) {
+            VStack(spacing: 2) {
                 WidgetLabel(text: "TIME TO \(entry.next?.name.uppercased() ?? "PRAYER")")
 
                 if let interval = interval {
                     Text(timerInterval: interval, countsDown: true, showsHours: showsHours)
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundColor(.white)
                         .lineLimit(1)
@@ -793,7 +802,7 @@ struct ScheduleView: View {
 
             Divider().overlay(Color.widgetHairline)
 
-            VStack(spacing: 7) {
+            VStack(spacing: 4) {
                 ForEach(entry.rows) { row in
                     PrayerRowView(row: row, day: entry.day)
                 }
@@ -810,8 +819,8 @@ struct ScheduleView: View {
                     .foregroundColor(entry.doneCount == 5 ? .widgetGold : .widgetMuted)
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 
@@ -824,6 +833,7 @@ struct PrayerScheduleWidget: Widget {
         .configurationDisplayName("Prayer Schedule")
         .description("Every prayer time for today with a countdown to the next one.")
         .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
 
