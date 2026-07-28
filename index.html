@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prayer Times — Privacy Policy</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1c1c1e;
+    --muted: #5c5c60;
+    --rule: #e4e4e7;
+    --accent: #9a7b16;
+    --card: #f7f7f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0f;
+      --fg: #ececee;
+      --muted: #9c9ca4;
+      --rule: #26262b;
+      --accent: #c9a227;
+      --card: #17171a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 44rem; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.02em; }
+  h2 {
+    font-size: 1.1rem; margin: 2.4rem 0 .6rem; letter-spacing: -.01em;
+    padding-top: 1.4rem; border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  .updated { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .lede {
+    background: var(--card); border-left: 3px solid var(--accent);
+    padding: 1rem 1.15rem; border-radius: 0 6px 6px 0; margin: 0 0 1rem;
+  }
+  ul { padding-left: 1.15rem; }
+  li { margin: .4rem 0; }
+  a { color: var(--accent); }
+  code {
+    background: var(--card); padding: .12em .4em; border-radius: 4px;
+    font: .875em/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  footer {
+    margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: .875rem;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Privacy Policy — Prayer Times</h1>
+  <p class="updated">Last updated 28 July 2026</p>
+
+  <p class="lede">
+    Prayer Times has no accounts, no analytics, no advertising and no tracking of any
+    kind. Your prayer records and settings never leave your device. The one thing that
+    does leave is your location, and only to work out when the prayers fall where you
+    are.
+  </p>
+
+  <h2>Location</h2>
+  <p>
+    To calculate accurate prayer times and the direction of the Qibla, the app needs to
+    know where you are. With your permission it reads your device's location, or you can
+    place a pin on the map yourself instead.
+  </p>
+  <p>Those coordinates are used in three ways:</p>
+  <ul>
+    <li>
+      They are sent to the <a href="https://aladhan.com" rel="noopener">AlAdhan API</a>
+      (<code>api.aladhan.com</code>), together with the date and your chosen calculation
+      method, which returns that day's prayer times. Nothing identifying you is sent
+      with the request — no name, no account, no device identifier.
+    </li>
+    <li>
+      They are passed to Apple's location services to turn into a readable place name,
+      so the app can show something like "Sheikh Zayed" rather than a pair of numbers.
+      The map in the location picker is Apple Maps.
+    </li>
+    <li>
+      They are saved on your device so the app doesn't have to ask again next time.
+    </li>
+  </ul>
+  <p>
+    Your location is never stored on any server we control, because we do not operate
+    one. You can withdraw access at any time in iOS Settings; the app will then fall back
+    to whatever location you last chose manually.
+  </p>
+
+  <h2>What stays on your device</h2>
+  <p>
+    The following is written to your device's private storage and to a shared container
+    that lets the home screen widgets read it. None of it is transmitted anywhere:
+  </p>
+  <ul>
+    <li>Which prayers you have marked as completed, and your streak</li>
+    <li>Your saved location and place name</li>
+    <li>Your calculation method, theme and notification preferences</li>
+  </ul>
+
+  <h2>Notifications</h2>
+  <p>
+    Prayer reminders are scheduled locally by your device from times already calculated
+    on it. There is no push server, and no notification token is registered or sent
+    anywhere.
+  </p>
+
+  <h2>What the app does not do</h2>
+  <ul>
+    <li>No user accounts, sign-in or profiles</li>
+    <li>No analytics, telemetry or crash reporting</li>
+    <li>No advertising, ad identifiers or ad networks</li>
+    <li>No tracking across apps or websites, and no data brokers</li>
+    <li>Nothing is sold or shared for marketing</li>
+  </ul>
+
+  <h2>Third-party services</h2>
+  <p>
+    The app relies on two outside services, each governed by its own privacy policy:
+    the <a href="https://aladhan.com" rel="noopener">AlAdhan API</a> for prayer time and
+    Hijri calendar data, and
+    <a href="https://www.apple.com/legal/privacy/" rel="noopener">Apple</a> for
+    geocoding and maps. The Hijri calendar request sends only a month and a year — no
+    location and nothing personal.
+  </p>
+
+  <h2>Keeping and deleting your data</h2>
+  <p>
+    Because everything is held locally, deleting the app removes all of it — your prayer
+    log, your streak, your saved location and every setting. There is no separate
+    deletion request to make, and nothing for us to erase on your behalf, as we hold
+    nothing.
+  </p>
+
+  <h2>Children</h2>
+  <p>
+    The app is suitable for all ages and collects no personal information from anyone,
+    children included.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    If this policy changes, the revised version will be posted on this page with a new
+    date at the top. Material changes will accompany an app update.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions about this policy or about privacy in the app:
+    <a href="mailto:aliezz140@gmail.com">aliezz140@gmail.com</a>
+  </p>
+
+  <footer>
+    Prayer Times for iOS · Privacy Policy · 28 July 2026
+  </footer>
+
+</main>
+</body>
+</html>
