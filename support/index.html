@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prayer Times — Support</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1c1c1e;
+    --muted: #5c5c60;
+    --rule: #e4e4e7;
+    --accent: #9a7b16;
+    --card: #f7f7f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0f;
+      --fg: #ececee;
+      --muted: #9c9ca4;
+      --rule: #26262b;
+      --accent: #c9a227;
+      --card: #17171a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 44rem; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.02em; }
+  h2 {
+    font-size: 1.1rem; margin: 2.4rem 0 .6rem; letter-spacing: -.01em;
+    padding-top: 1.4rem; border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  .updated { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .lede {
+    background: var(--card); border-left: 3px solid var(--accent);
+    padding: 1rem 1.15rem; border-radius: 0 6px 6px 0; margin: 0 0 1rem;
+  }
+  ul { padding-left: 1.15rem; }
+  li { margin: .4rem 0; }
+  a { color: var(--accent); }
+  code {
+    background: var(--card); padding: .12em .4em; border-radius: 4px;
+    font: .875em/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  details {
+    border-top: 1px solid var(--rule);
+    padding: .9rem 0;
+  }
+  details:first-of-type { border-top: 0; padding-top: 0; }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "+";
+    display: inline-block;
+    width: 1.1em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  details[open] summary::before { content: "–"; }
+  details p { margin: .6rem 0 0 1.1em; color: var(--muted); }
+  .contact {
+    background: var(--card); border-left: 3px solid var(--accent);
+    padding: 1rem 1.15rem; border-radius: 0 6px 6px 0; margin-top: 1rem;
+  }
+  footer {
+    margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: .875rem;
+  }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Support</h1>
+  <p class="updated">Prayer Times for iOS</p>
+
+  <p class="lede">
+    Answers to the most common questions below. If yours isn't covered, email
+    <a href="mailto:aliezz140@gmail.com">aliezz140@gmail.com</a> and we'll get back to you.
+  </p>
+
+  <h2>Frequently asked questions</h2>
+
+  <details open>
+    <summary>Why does the app need my location?</summary>
+    <p>
+      Prayer times and the direction of the Qibla depend on exactly where you are. With your
+      permission, the app reads your device's location and sends the coordinates to the
+      <a href="https://aladhan.com" rel="noopener">AlAdhan API</a> to calculate that day's
+      times — or you can place a pin on the map yourself instead of granting location access.
+      See the <a href="../">Privacy Policy</a> for the full details.
+    </p>
+  </details>
+
+  <details>
+    <summary>Prayer times look wrong for my area</summary>
+    <p>
+      Double-check the calculation method in Settings — different methods (MWL, ISNA, Egypt,
+      Makkah, etc.) can shift times by several minutes. If your location was set automatically,
+      try confirming it's accurate, or set it manually from the location picker. If times still
+      look off, email us your city, calculation method, and what you're seeing.
+    </p>
+  </details>
+
+  <details>
+    <summary>Notifications aren't showing up</summary>
+    <p>
+      Check that notifications are allowed for Prayer Times in iOS Settings, and that each
+      prayer reminder is switched on inside the app. Low Power Mode and background app
+      restrictions can also delay reminders that are scheduled ahead of time.
+    </p>
+  </details>
+
+  <details>
+    <summary>The home screen widget looks frozen or shows the wrong time</summary>
+    <p>
+      Widgets refresh on a schedule set by iOS, not instantly. Removing and re-adding the
+      widget, or opening the app once, forces it to refresh with the latest data.
+    </p>
+  </details>
+
+  <details>
+    <summary>How do I reset my prayer streak or clear my data?</summary>
+    <p>
+      Everything — your streak, saved location, and settings — lives only on your device.
+      Uninstalling the app clears all of it, since there's no account or server copy to
+      reset separately.
+    </p>
+  </details>
+
+  <details>
+    <summary>I found a bug or have a feature request</summary>
+    <p>
+      We'd like to hear it. Email a description of what happened (and a screenshot or
+      screen recording if it's visual) so we can reproduce and fix it.
+    </p>
+  </details>
+
+  <h2>Contact</h2>
+  <p class="contact">
+    <a href="mailto:aliezz140@gmail.com">aliezz140@gmail.com</a>
+  </p>
+
+  <footer>
+    Prayer Times for iOS · Support · <a href="../">Privacy Policy</a>
+  </footer>
+
+</main>
+</body>
+</html>
