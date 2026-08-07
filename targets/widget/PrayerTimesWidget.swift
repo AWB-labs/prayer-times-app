@@ -430,11 +430,80 @@ struct NextPrayerProvider: TimelineProvider {
     }
 }
 
+/// Lock Screen renditions of the next prayer.
+///
+/// These are deliberately colourless: the Lock Screen renders widgets in
+/// `.vibrant` mode, which flattens every colour into a single monochrome mask,
+/// so `.widgetGold` would come out the same wash of white as the body text.
+/// Hierarchy comes from weight and `.secondary` instead.
+struct NextPrayerAccessoryView: View {
+    let entry: NextPrayerEntry
+    let family: WidgetFamily
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            // One line, one optional glyph — anything richer is dropped silently.
+            Label("\(entry.prayerName) \(formatTime(entry.prayerTime))",
+                  systemImage: "moon.stars")
+
+        case .accessoryCircular:
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 0) {
+                    Text(entry.prayerName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    // 24h here rather than the app's 12h: "12:10 PM" cannot be
+                    // read at the size this circle allows.
+                    Text(entry.prayerTime)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .padding(5)
+            }
+            .containerBackground(for: .widget) { Color.clear }
+
+        default:
+            VStack(alignment: .leading, spacing: 1) {
+                Text("NEXT PRAYER")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(.secondary)
+                Text(entry.prayerName)
+                    .font(.system(size: 17, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(formatTime(entry.prayerTime))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .containerBackground(for: .widget) { Color.clear }
+        }
+    }
+}
+
 struct NextPrayerView: View {
     let entry: NextPrayerEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
+        switch family {
+        case .accessoryInline, .accessoryCircular, .accessoryRectangular:
+            NextPrayerAccessoryView(entry: entry, family: family)
+        default:
+            homeScreenView
+        }
+    }
+
+    private var homeScreenView: some View {
         VStack(spacing: 4) {
             WidgetLabel(text: "NEXT PRAYER")
 
@@ -466,7 +535,8 @@ struct NextPrayerWidget: Widget {
         }
         .configurationDisplayName("Next Prayer")
         .description("Shows the next upcoming prayer and its time.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium,
+                            .accessoryCircular, .accessoryRectangular, .accessoryInline])
         // The system's default content margins (~16pt a side) leave these dense
         // layouts too little height, which makes SwiftUI squeeze the text and clip
         // the glyph tops. Each view sets its own tighter padding instead.
@@ -533,6 +603,72 @@ struct CountdownProvider: TimelineProvider {
     }
 }
 
+/// Lock Screen renditions of the countdown.
+///
+/// Both the ring and the digits are advanced by the system, so these stay live
+/// on the Lock Screen without the widget being reloaded — which matters, since
+/// accessory widgets draw from the same refresh budget as the home screen ones.
+struct CountdownAccessoryView: View {
+    let entry: CountdownEntry
+    let family: WidgetFamily
+
+    /// `Text(timerInterval:)` requires a non-empty range.
+    private var remaining: ClosedRange<Date> {
+        entry.date...max(entry.target, entry.date.addingTimeInterval(1))
+    }
+
+    /// The whole gap between prayers — what the ring fills across.
+    private var window: ClosedRange<Date> {
+        min(entry.start, entry.target.addingTimeInterval(-1))...entry.target
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            Label {
+                Text(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)
+            } icon: {
+                Image(systemName: "timer")
+            }
+
+        case .accessoryCircular:
+            // The ring's own track reads well enough on its own, so no
+            // AccessoryWidgetBackground plate behind it here.
+            ProgressView(timerInterval: window, countsDown: false) {
+                EmptyView()
+            } currentValueLabel: {
+                Text(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+            .progressViewStyle(.circular)
+            .containerBackground(for: .widget) { Color.clear }
+
+        default:
+            VStack(alignment: .leading, spacing: 2) {
+                Text("TIME TO \(entry.prayerName.uppercased())")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+
+                CountdownStrip(start: entry.start, end: entry.target, showsEndpoints: false)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .containerBackground(for: .widget) { Color.clear }
+        }
+    }
+}
+
 struct CountdownView: View {
     let entry: CountdownEntry
     @Environment(\.widgetFamily) var family
@@ -543,6 +679,15 @@ struct CountdownView: View {
     }
 
     var body: some View {
+        switch family {
+        case .accessoryInline, .accessoryCircular, .accessoryRectangular:
+            CountdownAccessoryView(entry: entry, family: family)
+        default:
+            homeScreenView
+        }
+    }
+
+    private var homeScreenView: some View {
         VStack(spacing: 4) {
             WidgetLabel(text: "TIME TO")
 
@@ -587,7 +732,8 @@ struct CountdownWidget: Widget {
         }
         .configurationDisplayName("Prayer Countdown")
         .description("Counts down to the next prayer, second by second.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium,
+                            .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
@@ -685,6 +831,9 @@ struct PrayerChecklistWidget: Widget {
         }
         .configurationDisplayName("Prayer Checklist")
         .description("Tap to mark each prayer as done, straight from the home screen.")
+        // Home screen only, on purpose: this widget is nothing but tap targets,
+        // and a tap on a Lock Screen accessory widget unlocks into the app
+        // rather than running the intent. See PrayerScheduleWidget too.
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
