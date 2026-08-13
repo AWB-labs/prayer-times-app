@@ -10,13 +10,37 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import {
+  AudioMetadata,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from 'expo-audio';
 
 import { RECITERS, SurahAudio, pickAudioUrl } from '../services/quranApi';
 import { useTheme } from '../context/ThemeContext';
 
 /** Fixed rather than intrinsic so the list above it never reflows mid-scroll. */
 const BAR_HEIGHT = 66;
+
+/**
+ * Lock-screen controls are added to the player by the native module, so they are
+ * missing in a runtime whose native expo-audio is older than the installed JS —
+ * Expo Go being the case that matters, since it ships its own prebuilt modules.
+ * The typings promise the methods unconditionally, so calling one there throws
+ * and takes the whole screen down with it.
+ *
+ * Recitation itself does not depend on any of this, so a runtime without them
+ * degrades to playback without now-playing info. Same shape as the optional
+ * native module guard in src/modules/WidgetBridge.ts.
+ */
+type LockScreenControls = {
+  setActiveForLockScreen?: (active: boolean, metadata?: AudioMetadata) => void;
+  updateLockScreenMetadata?: (metadata: AudioMetadata) => void;
+  clearLockScreenControls?: () => void;
+};
+
+const lockScreen = (player: unknown) => player as LockScreenControls;
 
 export interface QuranAudioBarProps {
   /** Arabic surah name, used as the lock-screen album line. */
@@ -122,7 +146,7 @@ export function QuranAudioBar({
       player.pause();
       // The surah has ended or playback was dropped, so the now-playing entry
       // goes with it. Both platforms no-op this when no session is active.
-      player.clearLockScreenControls();
+      lockScreen(player).clearLockScreenControls?.();
       lockScreenActiveRef.current = false;
       intentRef.current = 'paused';
       loadedRef.current = null;
@@ -166,10 +190,11 @@ export function QuranAudioBar({
       artist: reciterLabel,
       albumTitle: surahName,
     };
+    const controls = lockScreen(player);
     if (lockScreenActiveRef.current) {
-      player.updateLockScreenMetadata(metadata);
-    } else {
-      player.setActiveForLockScreen(true, metadata);
+      controls.updateLockScreenMetadata?.(metadata);
+    } else if (controls.setActiveForLockScreen) {
+      controls.setActiveForLockScreen(true, metadata);
       lockScreenActiveRef.current = true;
     }
 
