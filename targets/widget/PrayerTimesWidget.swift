@@ -329,6 +329,28 @@ struct CountdownStrip: View {
     }
 }
 
+/// The Lock Screen counterpart of `CountdownStrip`: same self-advancing bar,
+/// without the gold tint or the endpoint labels. `.vibrant` flattens the tint
+/// into the same wash as the text, and an accessory widget has no height to
+/// spare for a row of endpoints.
+struct AccessoryCountdownBar: View {
+    let start: Date
+    let end: Date
+
+    private var range: ClosedRange<Date> {
+        min(start, end.addingTimeInterval(-1))...end
+    }
+
+    var body: some View {
+        ProgressView(timerInterval: range, countsDown: false) {
+            EmptyView()
+        } currentValueLabel: {
+            EmptyView()
+        }
+        .progressViewStyle(.linear)
+    }
+}
+
 /// Tappable check circle. Sunrise isn't a prayer to be completed, so it gets an
 /// inert sun glyph instead — the column stays aligned without inviting a tap.
 struct PrayerCheckButton: View {
@@ -553,6 +575,15 @@ struct CountdownEntry: TimelineEntry {
     let target: Date
     /// Whether more than an hour is left as of `date` — drives the h/m/s labelling.
     let showsHours: Bool
+    /// The prayer's wall-clock time, carried through as the stored "HH:mm" and
+    /// deliberately not passed through `formatTime`: "12:10 PM" is eight glyphs
+    /// where "12:10" is five, and the accessory families are width-bound.
+    let clock24: String
+
+    /// Three letters is all that stays readable under a circular accessory's
+    /// clock line. Every prayer name is still distinct at three: FAJ SUN DHU
+    /// ASR MAG ISH.
+    var abbrev: String { String(prayerName.prefix(3)).uppercased() }
 }
 
 struct CountdownProvider: TimelineProvider {
@@ -560,7 +591,8 @@ struct CountdownProvider: TimelineProvider {
         let now = Date()
         return CountdownEntry(date: now, prayerName: "Dhuhr",
                               start: now.addingTimeInterval(-1800),
-                              target: now.addingTimeInterval(3720), showsHours: true)
+                              target: now.addingTimeInterval(3720), showsHours: true,
+                              clock24: "12:10")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (CountdownEntry) -> Void) {
@@ -591,14 +623,21 @@ struct CountdownProvider: TimelineProvider {
         let data = WidgetData.load() ?? WidgetData.placeholder
         guard let window = data.window(now: date) else {
             return CountdownEntry(date: date, prayerName: "—", start: date,
-                                  target: date.addingTimeInterval(1), showsHours: false)
+                                  target: date.addingTimeInterval(1), showsHours: false,
+                                  clock24: "--:--")
         }
         return CountdownEntry(
             date: date,
             prayerName: window.next.name,
             start: window.start,
             target: window.next.date,
-            showsHours: window.next.date.timeIntervalSince(date) >= 3600
+            // Strictly greater, not >=. The T-60 timeline entry is generated at
+            // exactly `target - 3600`, so `>=` would still be true there and that
+            // entry would be byte-identical to the "now" one — the label would
+            // never collapse to m:s, and the circular Glance widget (which picks
+            // its layout off this flag) would never show its countdown at all.
+            showsHours: window.next.date.timeIntervalSince(date) > 3600,
+            clock24: window.next.time
         )
     }
 }
@@ -661,7 +700,9 @@ struct CountdownAccessoryView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
 
-                CountdownStrip(start: entry.start, end: entry.target, showsEndpoints: false)
+                // Not CountdownStrip: that one tints gold, which `.vibrant`
+                // flattens into the same wash as the text on the Lock Screen.
+                AccessoryCountdownBar(start: entry.start, end: entry.target)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .containerBackground(for: .widget) { Color.clear }
@@ -738,6 +779,204 @@ struct CountdownWidget: Widget {
     }
 }
 
+// MARK: - Glance Widget (name + clock + countdown together)
+
+/// Lock Screen renditions that carry the prayer's name, its wall-clock time and
+/// a live countdown at the same time — the thing neither "Next Prayer" nor
+/// "Prayer Countdown" can do alone.
+///
+/// Colourless on purpose, like the other accessory views: `.vibrant` collapses
+/// every colour into one monochrome mask, so weight and `.secondary` are the
+/// only hierarchy available.
+struct GlanceAccessoryView: View {
+    let entry: CountdownEntry
+    let family: WidgetFamily
+
+    /// `Text(timerInterval:)` renders nothing at all for an empty or inverted
+    /// range, so the end is forced past the start.
+    private var remaining: ClosedRange<Date> {
+        entry.date...max(entry.target, entry.date.addingTimeInterval(1))
+    }
+
+    /// The whole gap between prayers — what the ring and the bar fill across.
+    private var window: ClosedRange<Date> {
+        min(entry.start, entry.target.addingTimeInterval(-1))...entry.target
+    }
+
+    /// One string carrying both static and live content. `accessoryInline` draws
+    /// a single `Text` and drops anything else in the hierarchy, so the countdown
+    /// has to be spliced into the same string as the name and the clock — which
+    /// only `LocalizedStringKey` interpolation can do, hence the explicit type.
+    /// "Maghrib 17:51 · 1:23:45" is 23 of the ~26 characters this family renders.
+    private var inlineSummary: LocalizedStringKey {
+        "\(entry.prayerName) \(entry.clock24) · \(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)"
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            // Name first: the system truncates the tail, not the head.
+            Label {
+                Text(inlineSummary)
+            } icon: {
+                Image(systemName: "moon.stars")
+            }
+            .containerBackground(for: .widget) { Color.clear }
+
+        case .accessoryCircular:
+            // The circle clips to its inscribed square, leaving roughly 40pt for
+            // content. A full H:MM:SS needs 11.3pt there — exactly the size below
+            // which HIG says accessory text stops being readable — and this app
+            // hits H:MM:SS constantly (Isha 19:21 to Fajr 05:03 is 9h42m). So the
+            // two halves take turns: while more than an hour is left the ring
+            // carries the countdown and the digits carry the clock; inside the
+            // final hour MM:SS is short enough to sit above the clock. The T-60min
+            // entry CountdownProvider already emits is what flips this, for free.
+            ZStack {
+                ProgressView(timerInterval: window, countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: {
+                    EmptyView()
+                }
+                .progressViewStyle(.circular)
+
+                VStack(spacing: 0) {
+                    if entry.showsHours {
+                        Text(entry.clock24)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                        Text(entry.abbrev)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(timerInterval: remaining, countsDown: true, showsHours: false)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                        Text(entry.clock24)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .lineLimit(1)
+                // 0.8 x 14pt = 11.2pt. Any lower and SwiftUI would shrink the
+                // digits under the 11pt floor rather than leave them alone.
+                .minimumScaleFactor(0.8)
+                .frame(width: 40, height: 40)
+            }
+            // No AccessoryWidgetBackground: the ring's own track already reads
+            // as a plate, and a second one behind it muddies the vibrancy.
+            .containerBackground(for: .widget) { Color.clear }
+
+        default:
+            // Three separate `Text`s rather than one wrapping string: a single
+            // multi-line Text in this family truncates at two lines even when
+            // there is room (FB20766506, open as of iOS 26).
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(entry.prayerName.uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.8)
+                    Spacer(minLength: 2)
+                    Text(entry.clock24)
+                        .font(.system(size: 11, weight: .semibold))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+                // 26pt x HH:MM:SS is about 108pt wide, inside the 153pt this
+                // family gets on the narrowest supported screen.
+                Text(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                AccessoryCountdownBar(start: entry.start, end: entry.target)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .containerBackground(for: .widget) { Color.clear }
+        }
+    }
+}
+
+struct GlanceView: View {
+    let entry: CountdownEntry
+    @Environment(\.widgetFamily) var family
+
+    /// `Text(timerInterval:)` requires a non-empty range.
+    private var remaining: ClosedRange<Date> {
+        entry.date...max(entry.target, entry.date.addingTimeInterval(1))
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline, .accessoryCircular, .accessoryRectangular:
+            GlanceAccessoryView(entry: entry, family: family)
+        default:
+            homeScreenView
+        }
+    }
+
+    /// The home screen is not vibrant, so the clock can take the gold and read as
+    /// the fixed fact while the countdown stays white and moving.
+    private var homeScreenView: some View {
+        VStack(spacing: 4) {
+            WidgetLabel(text: "NEXT PRAYER")
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(entry.prayerName)
+                    .font(.system(size: family == .systemSmall ? 17 : 21, weight: .bold))
+                    .foregroundColor(.white)
+                Text(formatTime(entry.clock24))
+                    .font(.system(size: family == .systemSmall ? 13 : 15,
+                                  weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.widgetGold)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+
+            Text(timerInterval: remaining, countsDown: true, showsHours: entry.showsHours)
+                .font(.system(size: family == .systemSmall ? 30 : 40,
+                              weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+
+            CountdownStrip(start: entry.start, end: entry.target,
+                           showsEndpoints: family != .systemSmall)
+        }
+        .padding(.horizontal, family == .systemSmall ? 12 : 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .containerBackground(.black, for: .widget)
+    }
+}
+
+struct NextPrayerCountdownWidget: Widget {
+    let kind = "NextPrayerCountdownWidget"
+    var body: some WidgetConfiguration {
+        // CountdownProvider already emits exactly the timeline this needs — an
+        // entry at "now", one at T-60min where the h:m:s label collapses and the
+        // circular layout switches, and a reload a second after the prayer lands.
+        // A second provider would re-derive the same window for no benefit.
+        StaticConfiguration(kind: kind, provider: CountdownProvider()) { entry in
+            GlanceView(entry: entry)
+        }
+        .configurationDisplayName("Prayer at a Glance")
+        // Deliberately not promising digits "at once" everywhere: the circular
+        // family has room for one numeric line, so outside the final hour it
+        // carries the clock time and the ring carries the progress. The
+        // rectangular and inline families do show both together.
+        .description("The next prayer, its time and how long is left.")
+        .supportedFamilies([.systemSmall, .systemMedium,
+                            .accessoryCircular, .accessoryRectangular, .accessoryInline])
+        .contentMarginsDisabled()
+    }
+}
+
 // MARK: - Schedule Entry (shared by the checklist and schedule widgets)
 
 struct ScheduleEntry: TimelineEntry {
@@ -763,7 +1002,20 @@ struct ScheduleProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<ScheduleEntry>) -> Void) {
         let now = Date()
         let entry = makeEntry(at: now)
-        completion(Timeline(entries: [entry],
+
+        // A second entry at T-60, matching CountdownProvider. `showsHours` is
+        // derived from the entry's own date, so with a single entry it would be
+        // frozen for the whole window and the last hour would render as
+        // "0:03:00" instead of "03:00".
+        var entries = [entry]
+        if let next = entry.next {
+            let hourCrossing = next.date.addingTimeInterval(-3600)
+            if hourCrossing > now {
+                entries.append(makeEntry(at: hourCrossing))
+            }
+        }
+
+        completion(Timeline(entries: entries,
                             policy: .after(nextRefresh(after: now, next: entry.next?.date))))
     }
 
@@ -841,6 +1093,105 @@ struct PrayerChecklistWidget: Widget {
 
 // MARK: - Schedule Widget
 
+/// Lock Screen rendition of the day's schedule.
+///
+/// No check circles here, unlike every home screen schedule layout: a tap on a
+/// Lock Screen accessory widget unlocks into the app rather than running the
+/// intent, so the column would be dead weight in space this family cannot spare.
+struct ScheduleAccessoryView: View {
+    let entry: ScheduleEntry
+    let family: WidgetFamily
+
+    /// `Text(timerInterval:)` requires a non-empty range.
+    private var remaining: ClosedRange<Date>? {
+        guard let next = entry.next else { return nil }
+        return entry.date...max(next.date, entry.date.addingTimeInterval(1))
+    }
+
+    private var showsHours: Bool {
+        guard let next = entry.next else { return false }
+        return next.date.timeIntervalSince(entry.date) > 3600
+    }
+
+    /// The next four prayers, wrapping round to the top of the list once the day
+    /// has run out — otherwise the widget would sit empty between Isha and
+    /// midnight, which is exactly when someone checks when Fajr is.
+    private var upcoming: [ScheduleRow] {
+        let ahead = entry.rows.filter { !$0.isPast }
+        if ahead.count >= 4 { return Array(ahead.prefix(4)) }
+        return Array((ahead + entry.rows).prefix(4))
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            // Names are cut to three letters. Spelled out, two prayers run to 26
+            // characters and up to 29 for "Maghrib 17:51 · Sunrise 06:29", past
+            // the ~22-24 the inline slot fits once the glyph is placed — and the
+            // part that truncates is the second time, the only thing this widget
+            // adds over the other inline layouts. Abbreviated it is 21.
+            Label {
+                Text(upcoming.prefix(2)
+                    .map { "\($0.name.prefix(3)) \($0.time)" }
+                    .joined(separator: " · "))
+            } icon: {
+                Image(systemName: "list.bullet")
+            }
+            .containerBackground(for: .widget) { Color.clear }
+
+        default:
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text((entry.next?.name ?? "Today").uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.8)
+                    Spacer(minLength: 2)
+                    if let remaining = remaining {
+                        Text(timerInterval: remaining, countsDown: true, showsHours: showsHours)
+                            .font(.system(size: 11, weight: .semibold))
+                            .monospacedDigit()
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+                // Four columns, not all six: the narrowest supported rectangular
+                // accessory is 153pt, which divides into 38pt columns, and "17:51"
+                // already wants 35pt of that at 13pt. Six columns would force
+                // 9.6pt type, well under the 11pt legibility floor.
+                // Indexed rather than keyed off ScheduleRow.id: the wrap into
+                // tomorrow can repeat a name, and a duplicated ForEach id makes
+                // SwiftUI drop the row.
+                HStack(alignment: .top, spacing: 2) {
+                    ForEach(upcoming.indices, id: \.self) { index in
+                        let row = upcoming[index]
+                        VStack(spacing: 0) {
+                            Text(String(row.name.prefix(3)).uppercased())
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            // 24h rather than the app's 12h: "5:38 PM" is half
+                            // again as wide as "17:38" and the column has no slack.
+                            Text(row.time)
+                                .font(.system(size: 13,
+                                              weight: index == 0 ? .bold : .medium,
+                                              design: .rounded))
+                                .monospacedDigit()
+                        }
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+
+                AccessoryCountdownBar(start: entry.windowStart,
+                                      end: entry.next?.date ?? entry.date.addingTimeInterval(1))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .containerBackground(for: .widget) { Color.clear }
+        }
+    }
+}
+
 struct ScheduleView: View {
     let entry: ScheduleEntry
     @Environment(\.widgetFamily) var family
@@ -853,10 +1204,19 @@ struct ScheduleView: View {
 
     private var showsHours: Bool {
         guard let next = entry.next else { return false }
-        return next.date.timeIntervalSince(entry.date) >= 3600
+        return next.date.timeIntervalSince(entry.date) > 3600
     }
 
     var body: some View {
+        switch family {
+        case .accessoryInline, .accessoryRectangular:
+            ScheduleAccessoryView(entry: entry, family: family)
+        default:
+            homeScreenView
+        }
+    }
+
+    private var homeScreenView: some View {
         Group {
             if family == .systemLarge {
                 largeLayout
@@ -981,7 +1341,10 @@ struct PrayerScheduleWidget: Widget {
         }
         .configurationDisplayName("Prayer Schedule")
         .description("Every prayer time for today with a countdown to the next one.")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        // No .accessoryCircular: the ~40pt square inside the ring holds one
+        // prayer at best, which is what "Prayer at a Glance" is already for.
+        .supportedFamilies([.systemMedium, .systemLarge,
+                            .accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
@@ -993,6 +1356,7 @@ struct PrayerTimesWidgetBundle: WidgetBundle {
     var body: some Widget {
         NextPrayerWidget()
         CountdownWidget()
+        NextPrayerCountdownWidget()
         PrayerChecklistWidget()
         PrayerScheduleWidget()
     }

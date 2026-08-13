@@ -17,7 +17,10 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Prayer Times needs your location to calculate accurate prayer times for your area.",
         "NSLocationAlwaysUsageDescription": "Prayer Times needs your location to calculate accurate prayer times for your area.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "bundleIdentifier": "com.badry.prayertimes",
       "entitlements": {
@@ -57,7 +60,13 @@
         }
       ],
       "@bacons/apple-targets",
-      "./plugins/withMainAppGroup"
+      "./plugins/withMainAppGroup",
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

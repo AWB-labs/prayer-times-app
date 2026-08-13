@@ -191,14 +191,12 @@ export function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={theme.statusBar} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+      {/* The stack header supplies the title and the top inset now that Settings
+          is pushed from the home screen rather than being a tab. */}
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* ── Page title ── */}
           <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '800' }}>
-              Settings
-            </Text>
-            <Text style={{ color: theme.textSub, fontSize: 13, marginTop: 3 }}>
+            <Text style={{ color: theme.textSub, fontSize: 13 }}>
               Customize your experience
             </Text>
           </View>

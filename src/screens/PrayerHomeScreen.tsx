@@ -1,8 +1,12 @@
 import React from 'react';
-import { View, ScrollView, Text, RefreshControl } from 'react-native';
+import { View, ScrollView, Text, RefreshControl, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import type { RootStackParamList } from '../navigation/types';
 import { useLocation } from '../hooks/useLocation';
 import { usePrayerTimes } from '../hooks/usePrayerTimes';
 import { usePrayerNotifications } from '../hooks/usePrayerNotifications';
@@ -17,6 +21,43 @@ import { DateHeader } from '../components/DateHeader';
 import { NextPrayerBanner } from '../components/NextPrayerBanner';
 import { StreakStrip } from '../components/StreakStrip';
 import { PrayerCard } from '../components/PrayerCard';
+
+/**
+ * Settings no longer has a tab — the Quran took that slot — so this is the only
+ * way into it. It is rendered over the loading and error states too: a user
+ * whose location lookup fails needs Settings to pin a location manually, and
+ * stranding them on the error screen would leave the app unusable.
+ */
+function SettingsButton() {
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  return (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Settings')}
+      accessibilityRole="button"
+      accessibilityLabel="Settings"
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={{
+        position: 'absolute',
+        top: insets.top + 6,
+        right: 16,
+        zIndex: 10,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.surface,
+        borderWidth: 1,
+        borderColor: theme.border,
+      }}
+    >
+      <Ionicons name="settings-outline" size={18} color={theme.textSub} />
+    </TouchableOpacity>
+  );
+}
 
 export function PrayerHomeScreen() {
   const { theme } = useTheme();
@@ -42,6 +83,7 @@ export function PrayerHomeScreen() {
     return (
       <>
         <StatusBar style={theme.statusBar} />
+        <SettingsButton />
         <LoadingScreen
           message={location.loading ? 'Getting your location...' : 'Loading prayer times...'}
         />
@@ -53,6 +95,7 @@ export function PrayerHomeScreen() {
     return (
       <>
         <StatusBar style={theme.statusBar} />
+        <SettingsButton />
         <ErrorScreen message={error} onRetry={prayerTimes.refetch} />
       </>
     );
@@ -66,6 +109,7 @@ export function PrayerHomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={theme.statusBar} />
+      <SettingsButton />
       {/* Bottom inset is already handled by the tab bar — claiming it here too
           would leave a strip of `theme.bg` sitting above the navigation bar. */}
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
