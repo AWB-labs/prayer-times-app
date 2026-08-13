@@ -178,18 +178,19 @@ export interface TranslationEdition {
  * fail loudly, it would silently return a different translation.
  */
 export const TRANSLATION_EDITIONS: TranslationEdition[] = [
-  { identifier: 'en.sahih', language: 'en', label: 'Saheeh International', languageLabel: 'English', direction: 'ltr' },
-  { identifier: 'en.pickthall', language: 'en', label: 'Marmaduke Pickthall', languageLabel: 'English', direction: 'ltr' },
-  { identifier: 'en.yusufali', language: 'en', label: 'Abdullah Yusuf Ali', languageLabel: 'English', direction: 'ltr' },
-  { identifier: 'en.asad', language: 'en', label: 'Muhammad Asad', languageLabel: 'English', direction: 'ltr' },
-  { identifier: 'en.itani', language: 'en', label: "Clear Qur'an — Talal Itani", languageLabel: 'English', direction: 'ltr' },
   { identifier: 'ur.jalandhry', language: 'ur', label: 'Fateh Muhammad Jalandhry', languageLabel: 'اردو', direction: 'rtl' },
   { identifier: 'tr.diyanet', language: 'tr', label: 'Diyanet İşleri', languageLabel: 'Türkçe', direction: 'ltr' },
   { identifier: 'id.indonesian', language: 'id', label: 'Kementerian Agama', languageLabel: 'Bahasa Indonesia', direction: 'ltr' },
   { identifier: 'fr.hamidullah', language: 'fr', label: 'Muhammad Hamidullah', languageLabel: 'Français', direction: 'ltr' },
 ];
 
-export const DEFAULT_TRANSLATION = 'en.sahih';
+/**
+ * There is no English edition to fall back on, and picking any one of the
+ * remaining languages as a global default would put a translation nobody asked
+ * for under the Arabic. The reader therefore opens Arabic-only and this is only
+ * the edition used once someone turns translation on.
+ */
+export const DEFAULT_TRANSLATION = 'ur.jalandhry';
 
 export function getTranslationEdition(identifier: string): TranslationEdition | undefined {
   return TRANSLATION_EDITIONS.find((e) => e.identifier === identifier);

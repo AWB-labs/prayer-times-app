@@ -70,16 +70,18 @@ interface ReaderPrefs {
 const DEFAULT_PREFS: ReaderPrefs = {
   translation: DEFAULT_TRANSLATION,
   reciter: DEFAULT_RECITER,
-  showTranslation: true,
+  // Off by default: with the English editions gone, none of the remaining
+  // languages is a sensible thing to show someone unprompted.
+  showTranslation: false,
   arabicFontSize: 26,
   dataSaver: false,
 };
 
 /**
  * Reading these is async, and the edition is a fetch key — starting on the
- * default would pull en.sahih down and then immediately discard it for whatever
- * the reader actually chose last time. `loaded` exists so the caller can hold
- * the fetch until the real edition is known.
+ * default would pull that edition down and then immediately discard it for
+ * whatever the reader actually chose last time. `loaded` exists so the caller
+ * can hold the fetch until the real edition is known.
  *
  * Identifiers are re-validated against the curated lists on the way in: one
  * dropped from a later release must not survive in storage, because the API
@@ -94,17 +96,24 @@ function useReaderPrefs() {
       .then((raw) => {
         if (!raw) return;
         const saved = JSON.parse(raw) as Partial<ReaderPrefs>;
+        // A stored edition that no longer exists also turns the translation off.
+        // Readers who had English on would otherwise be silently switched to
+        // whichever language now leads the list, which is not a translation they
+        // chose or can necessarily read.
+        const storedTranslationSurvives =
+          typeof saved.translation === 'string' && !!getTranslationEdition(saved.translation);
         setPrefs((prev) => ({
-          translation:
-            typeof saved.translation === 'string' && getTranslationEdition(saved.translation)
-              ? saved.translation
-              : prev.translation,
+          translation: storedTranslationSurvives
+            ? (saved.translation as string)
+            : prev.translation,
           reciter:
             typeof saved.reciter === 'string' &&
             RECITERS.some((r) => r.identifier === saved.reciter)
               ? saved.reciter
               : prev.reciter,
-          showTranslation: saved.showTranslation ?? prev.showTranslation,
+          showTranslation: storedTranslationSurvives
+            ? saved.showTranslation ?? prev.showTranslation
+            : false,
           arabicFontSize:
             typeof saved.arabicFontSize === 'number'
               ? clampFontSize(saved.arabicFontSize)
