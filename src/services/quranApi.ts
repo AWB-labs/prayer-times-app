@@ -7,10 +7,9 @@
  *    *different* edition silently substituted. A typo would therefore ship the
  *    wrong scripture with no error, so every response is checked against what
  *    was asked for.
- * 2. The Arabic text inlines the Basmala into ayah 1 of 113 of the 114 surahs
- *    while the translations do not, so a naive parallel render pairs the
- *    Basmala with an unrelated English line. It is split off here, once, on the
- *    way in — see `splitBasmala`.
+ * 2. The Arabic text inlines the Basmala into ayah 1 of 113 of the 114 surahs,
+ *    so rendering ayah 1 as-is repeats it under the header that already shows
+ *    it. It is split off here, once, on the way in — see `splitBasmala`.
  */
 
 const BASE_URL = 'https://api.alquran.cloud/v1';
@@ -100,7 +99,6 @@ export interface QuranAyah {
   numberInSurah: number;
   /** Uthmani script, with the leading Basmala already removed. */
   arabic: string;
-  translation: string;
   juz: number;
   manzil: number;
   page: number;
@@ -123,7 +121,6 @@ export interface Surah {
    */
   basmala: string | null;
   arabicEdition: EditionRef;
-  translationEdition: EditionRef;
   ayahs: QuranAyah[];
 }
 
@@ -160,41 +157,6 @@ export function splitBasmala(
 }
 
 /* ── Curated editions ───────────────────────────────────────────────────── */
-
-export interface TranslationEdition {
-  identifier: string;
-  /** ISO 639-1 */
-  language: string;
-  /** Translator, for the picker's primary line */
-  label: string;
-  /** Language in its own script, for the picker's secondary line */
-  languageLabel: string;
-  direction: 'ltr' | 'rtl';
-}
-
-/**
- * A hand-picked subset of the 124 translations the API carries. Each
- * identifier is verified against /v1/edition — an unverified one would not
- * fail loudly, it would silently return a different translation.
- */
-export const TRANSLATION_EDITIONS: TranslationEdition[] = [
-  { identifier: 'ur.jalandhry', language: 'ur', label: 'Fateh Muhammad Jalandhry', languageLabel: 'اردو', direction: 'rtl' },
-  { identifier: 'tr.diyanet', language: 'tr', label: 'Diyanet İşleri', languageLabel: 'Türkçe', direction: 'ltr' },
-  { identifier: 'id.indonesian', language: 'id', label: 'Kementerian Agama', languageLabel: 'Bahasa Indonesia', direction: 'ltr' },
-  { identifier: 'fr.hamidullah', language: 'fr', label: 'Muhammad Hamidullah', languageLabel: 'Français', direction: 'ltr' },
-];
-
-/**
- * There is no English edition to fall back on, and picking any one of the
- * remaining languages as a global default would put a translation nobody asked
- * for under the Arabic. The reader therefore opens Arabic-only and this is only
- * the edition used once someone turns translation on.
- */
-export const DEFAULT_TRANSLATION = 'ur.jalandhry';
-
-export function getTranslationEdition(identifier: string): TranslationEdition | undefined {
-  return TRANSLATION_EDITIONS.find((e) => e.identifier === identifier);
-}
 
 export interface Reciter {
   identifier: string;
@@ -298,35 +260,19 @@ export async function fetchSurahList(): Promise<SurahMeta[]> {
   return request<SurahMeta[]>('/surah');
 }
 
-/**
- * One surah with its Arabic and a translation in a single request.
- *
- * Ayah counts are identical across every text edition, so the two are zipped by
- * index; the length check below is what would catch that ever changing.
- */
-export async function fetchSurah(
-  surahNumber: number,
-  translationEdition: string = DEFAULT_TRANSLATION
-): Promise<Surah> {
+/** One surah, Arabic only. */
+export async function fetchSurah(surahNumber: number): Promise<Surah> {
   const data = await request<RawSurahWithAyahs[]>(
-    `/surah/${surahNumber}/editions/${ARABIC_EDITION},${translationEdition}`
+    `/surah/${surahNumber}/editions/${ARABIC_EDITION}`
   );
 
-  const [arabic, translation] = data;
+  const [arabic] = data;
 
-  if (!arabic || !translation) {
-    throw new Error(`Quran API returned ${data.length} editions, expected 2`);
+  if (!arabic) {
+    throw new Error(`Quran API returned ${data.length} editions, expected 1`);
   }
 
   assertEdition(arabic.edition, ARABIC_EDITION);
-  assertEdition(translation.edition, translationEdition);
-
-  if (arabic.ayahs.length !== translation.ayahs.length) {
-    throw new Error(
-      `Ayah count mismatch in surah ${surahNumber}: ` +
-        `${arabic.ayahs.length} Arabic vs ${translation.ayahs.length} translated`
-    );
-  }
 
   const splits = arabic.ayahs.map((ayah) =>
     splitBasmala(surahNumber, ayah.numberInSurah, ayah.text)
@@ -336,7 +282,6 @@ export async function fetchSurah(
     number: ayah.number,
     numberInSurah: ayah.numberInSurah,
     arabic: splits[index].text,
-    translation: translation.ayahs[index].text,
     juz: ayah.juz,
     manzil: ayah.manzil,
     page: ayah.page,
@@ -354,7 +299,6 @@ export async function fetchSurah(
     numberOfAyahs: arabic.numberOfAyahs,
     basmala: splits.length > 0 ? splits[0].basmala : null,
     arabicEdition: arabic.edition,
-    translationEdition: translation.edition,
     ayahs,
   };
 }

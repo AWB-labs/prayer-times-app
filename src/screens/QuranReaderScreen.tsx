@@ -9,8 +9,6 @@ import React, {
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
-  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -18,17 +16,13 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSurah, useSurahAudio } from '../hooks/useQuran';
 import {
   DEFAULT_RECITER,
-  DEFAULT_TRANSLATION,
   QuranAyah,
   RECITERS,
   Surah,
-  TRANSLATION_EDITIONS,
-  getTranslationEdition,
 } from '../services/quranApi';
 import { QuranAudioBar } from '../components/QuranAudioBar';
 import type { QuranStackParamList } from '../navigation/types';
@@ -60,30 +54,24 @@ const clampFontSize = (size: number) =>
   Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(size)));
 
 interface ReaderPrefs {
-  translation: string;
   reciter: string;
-  showTranslation: boolean;
   arabicFontSize: number;
   dataSaver: boolean;
 }
 
 const DEFAULT_PREFS: ReaderPrefs = {
-  translation: DEFAULT_TRANSLATION,
   reciter: DEFAULT_RECITER,
-  // Off by default: with the English editions gone, none of the remaining
-  // languages is a sensible thing to show someone unprompted.
-  showTranslation: false,
   arabicFontSize: 26,
   dataSaver: false,
 };
 
 /**
- * Reading these is async, and the edition is a fetch key — starting on the
- * default would pull that edition down and then immediately discard it for
- * whatever the reader actually chose last time. `loaded` exists so the caller
- * can hold the fetch until the real edition is known.
+ * Reading these is async, and the reciter is a fetch key for the recitation
+ * manifest — starting on the default would pull one down and then immediately
+ * discard it for whatever the reader actually chose last time. `loaded` exists
+ * so the caller can hold the fetch until the real reciter is known.
  *
- * Identifiers are re-validated against the curated lists on the way in: one
+ * Identifiers are re-validated against the curated list on the way in: one
  * dropped from a later release must not survive in storage, because the API
  * answers an unknown edition with a silent substitution rather than an error.
  */
@@ -96,24 +84,12 @@ function useReaderPrefs() {
       .then((raw) => {
         if (!raw) return;
         const saved = JSON.parse(raw) as Partial<ReaderPrefs>;
-        // A stored edition that no longer exists also turns the translation off.
-        // Readers who had English on would otherwise be silently switched to
-        // whichever language now leads the list, which is not a translation they
-        // chose or can necessarily read.
-        const storedTranslationSurvives =
-          typeof saved.translation === 'string' && !!getTranslationEdition(saved.translation);
         setPrefs((prev) => ({
-          translation: storedTranslationSurvives
-            ? (saved.translation as string)
-            : prev.translation,
           reciter:
             typeof saved.reciter === 'string' &&
             RECITERS.some((r) => r.identifier === saved.reciter)
               ? saved.reciter
               : prev.reciter,
-          showTranslation: storedTranslationSurvives
-            ? saved.showTranslation ?? prev.showTranslation
-            : false,
           arabicFontSize:
             typeof saved.arabicFontSize === 'number'
               ? clampFontSize(saved.arabicFontSize)
@@ -271,8 +247,6 @@ interface AyahBlockProps {
   ayah: QuranAyah;
   theme: AppTheme;
   fontSize: number;
-  showTranslation: boolean;
-  translationDirection: 'rtl' | 'ltr';
   isPlaying: boolean;
   /** Row index, passed back to `onPlay` so the handler can stay identity-stable. */
   index: number;
@@ -283,13 +257,10 @@ function AyahBlockBase({
   ayah,
   theme,
   fontSize,
-  showTranslation,
-  translationDirection,
   isPlaying,
   index,
   onPlay,
 }: AyahBlockProps) {
-  const translationFontSize = Math.max(13, Math.min(22, Math.round(fontSize * 0.58)));
   const handlePlay = useCallback(() => onPlay(index), [onPlay, index]);
 
   return (
@@ -363,21 +334,6 @@ function AyahBlockBase({
       >
         {rtlEmbed(ayah.arabic)}
       </Text>
-
-      {showTranslation && ayah.translation.length > 0 && (
-        <Text
-          style={{
-            color: theme.textSub,
-            fontSize: translationFontSize,
-            lineHeight: translationFontSize * 1.6,
-            marginTop: 12,
-            textAlign: translationDirection === 'rtl' ? 'right' : 'left',
-            writingDirection: translationDirection,
-          }}
-        >
-          {translationDirection === 'rtl' ? rtlEmbed(ayah.translation) : ayah.translation}
-        </Text>
-      )}
     </View>
   );
 }
@@ -394,24 +350,9 @@ interface ToolbarProps {
   theme: AppTheme;
   fontSize: number;
   onChangeFontSize: (size: number) => void;
-  showTranslation: boolean;
-  onToggleTranslation: () => void;
-  editionLabel: string;
-  /** A new edition is in flight; the ayahs below are still the previous one. */
-  editionLoading: boolean;
-  onOpenEditions: () => void;
 }
 
-function ReaderToolbar({
-  theme,
-  fontSize,
-  onChangeFontSize,
-  showTranslation,
-  onToggleTranslation,
-  editionLabel,
-  editionLoading,
-  onOpenEditions,
-}: ToolbarProps) {
+function ReaderToolbar({ theme, fontSize, onChangeFontSize }: ToolbarProps) {
   const stepper = (delta: number, icon: React.ComponentProps<typeof Ionicons>['name']) => {
     const next = clampFontSize(fontSize + delta);
     return (
@@ -470,155 +411,7 @@ function ReaderToolbar({
         </Text>
         {stepper(FONT_STEP, 'add')}
       </View>
-
-      <TouchableOpacity
-        onPress={onToggleTranslation}
-        activeOpacity={0.7}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: showTranslation }}
-        accessibilityLabel="Show translation"
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 10,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: showTranslation ? theme.accentBorder : theme.border,
-          backgroundColor: showTranslation ? theme.accentSurface : theme.surface,
-        }}
-      >
-        <Ionicons
-          name={showTranslation ? 'language' : 'language-outline'}
-          size={16}
-          color={showTranslation ? theme.accent : theme.textMuted}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={onOpenEditions}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={`Translation: ${editionLabel}. Change translation`}
-        style={{
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: 34,
-          borderRadius: 10,
-          paddingHorizontal: 10,
-          borderWidth: 1,
-          borderColor: theme.border,
-          backgroundColor: theme.surface,
-        }}
-      >
-        <Text numberOfLines={1} style={{ flex: 1, color: theme.textSub, fontSize: 12 }}>
-          {editionLabel}
-        </Text>
-        {editionLoading ? (
-          <ActivityIndicator size="small" color={theme.textMuted} />
-        ) : (
-          <Ionicons name="chevron-down" size={14} color={theme.textMuted} />
-        )}
-      </TouchableOpacity>
     </View>
-  );
-}
-
-function TranslationSheet({
-  visible,
-  selected,
-  onSelect,
-  onClose,
-  theme,
-}: {
-  visible: boolean;
-  selected: string;
-  onSelect: (identifier: string) => void;
-  onClose: () => void;
-  theme: AppTheme;
-}) {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <View
-          style={{
-            maxHeight: '75%',
-            backgroundColor: theme.surface,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            borderTopWidth: 1,
-            borderColor: theme.border,
-            paddingBottom: insets.bottom + 8,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.border,
-            }}
-          >
-            <Text style={{ flex: 1, color: theme.text, fontSize: 16, fontWeight: '700' }}>
-              Translation
-            </Text>
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={20} color={theme.textSub} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView>
-            {TRANSLATION_EDITIONS.map((edition) => {
-              const isSelected = edition.identifier === selected;
-              return (
-                <TouchableOpacity
-                  key={edition.identifier}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    onSelect(edition.identifier);
-                    onClose();
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 16,
-                    paddingVertical: 13,
-                    backgroundColor: isSelected ? theme.accentSurface : 'transparent',
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: isSelected ? theme.accent : theme.text,
-                        fontSize: 15,
-                        fontWeight: isSelected ? '600' : '400',
-                      }}
-                    >
-                      {edition.label}
-                    </Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
-                      {edition.languageLabel}
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -630,13 +423,11 @@ export function QuranReaderScreen() {
 
   const { prefs, prefsLoaded, updatePrefs } = useReaderPrefs();
   const { data: surah, loading, error, refetch } = useSurah(
-    prefsLoaded ? surahNumber : null,
-    prefs.translation
+    prefsLoaded ? surahNumber : null
   );
 
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [editionsOpen, setEditionsOpen] = useState(false);
   /** Bumped on every explicit play press so the bar can restart the cued ayah. */
   const [playRequestId, setPlayRequestId] = useState(0);
   const listRef = useRef<FlatList<QuranAyah>>(null);
@@ -649,26 +440,16 @@ export function QuranReaderScreen() {
   const audio = useSurahAudio(audioEnabled ? surahNumber : null, prefs.reciter);
 
   /*
-   * Choosing a new translation re-keys the surah resource, which reports one
-   * null frame before the new text lands. Rendering the previous copy through
-   * that frame keeps the audio bar mounted, and with it the player — otherwise
-   * changing edition mid-recitation would silence it. Only the translation
-   * differs between editions; the Arabic and the ayah count are one corpus.
+   * The last loaded copy is held so a refetch cannot blank the screen. Rendering
+   * it through a null frame keeps the audio bar mounted, and with it the player,
+   * so a background revalidation never silences a recitation in progress.
    *
-   * The bridge is held open only while the fetch is in flight. If it fails, the
-   * stale copy is dropped rather than left on screen under the new edition's
-   * label, which would misattribute a translation to a translator.
+   * Pinned to the surah actually being viewed: a reused screen instance must
+   * never bridge the previous surah's text under this one's header.
    */
-  // The bridged copy is kept through a FAILED switch too, not just a pending one.
-  // Dropping it would tear down a working screen — toolbar, translation picker
-  // and audio bar all unmount, stopping the recitation and leaving no way to pick
-  // the edition that was working. The failure is surfaced inline instead.
-  // Pinned to the surah actually being viewed, so a reused screen instance can
-  // never bridge the previous surah's text under this one's header.
   const bridged =
     lastLoaded.current?.number === surahNumber ? lastLoaded.current : null;
   const shown = surah ?? bridged;
-  const switchFailed = surah === null && error !== null && bridged !== null;
 
   // Committed in an effect rather than during render: a render that React throws
   // away must not leave the bridge pointing at a surah that was never shown.
@@ -706,48 +487,23 @@ export function QuranReaderScreen() {
     setPlayingIndex(index);
   }, []);
 
-  // The edition the API actually answered with drives alignment, so a right-to-
-  // left translation stays right-aligned even while a new one is on its way in.
-  // Computed before the early returns below so the hooks that depend on it are
-  // never skipped on a render.
-  const translationDirection: 'rtl' | 'ltr' = shown
-    ? shown.translationEdition.direction ??
-      getTranslationEdition(shown.translationEdition.identifier)?.direction ??
-      'ltr'
-    : 'ltr';
-
   const renderAyah = useCallback(
     ({ item, index }: { item: QuranAyah; index: number }) => (
       <AyahBlock
         ayah={item}
         theme={theme}
         fontSize={prefs.arabicFontSize}
-        showTranslation={prefs.showTranslation}
-        translationDirection={translationDirection}
         isPlaying={index === playingIndex}
         index={index}
         onPlay={handlePlayAyah}
       />
     ),
-    [
-      theme,
-      prefs.arabicFontSize,
-      prefs.showTranslation,
-      translationDirection,
-      playingIndex,
-      handlePlayAyah,
-    ]
+    [theme, prefs.arabicFontSize, playingIndex, handlePlayAyah]
   );
 
   const ayahExtraData = useMemo(
-    () => ({
-      playingIndex,
-      fontSize: prefs.arabicFontSize,
-      showTranslation: prefs.showTranslation,
-      translationDirection,
-      theme,
-    }),
-    [playingIndex, prefs.arabicFontSize, prefs.showTranslation, translationDirection, theme]
+    () => ({ playingIndex, fontSize: prefs.arabicFontSize, theme }),
+    [playingIndex, prefs.arabicFontSize, theme]
   );
 
   if (!prefsLoaded || (loading && !shown)) {
@@ -785,48 +541,13 @@ export function QuranReaderScreen() {
     );
   }
 
-  // Labelled from the edition actually on screen, not the one being fetched.
-  // While a switch is in flight the previous translator's text is still rendered
-  // below, and naming the new translator over it would misattribute a translation.
-  const editionLabel =
-    getTranslationEdition(shown.translationEdition.identifier)?.label ??
-    shown.translationEdition.englishName;
-
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ReaderToolbar
         theme={theme}
         fontSize={prefs.arabicFontSize}
         onChangeFontSize={(size) => updatePrefs({ arabicFontSize: size })}
-        showTranslation={prefs.showTranslation}
-        onToggleTranslation={() => updatePrefs({ showTranslation: !prefs.showTranslation })}
-        editionLabel={editionLabel}
-        editionLoading={loading}
-        onOpenEditions={() => setEditionsOpen(true)}
       />
-
-      {switchFailed && (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            backgroundColor: theme.surface,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.border,
-          }}
-        >
-          <Ionicons name="cloud-offline-outline" size={15} color={theme.textMuted} />
-          <Text style={{ color: theme.textSub, fontSize: 12, flex: 1 }} numberOfLines={2}>
-            Could not load that translation. Still showing {editionLabel}.
-          </Text>
-          <TouchableOpacity onPress={refetch} accessibilityRole="button" hitSlop={8}>
-            <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '600' }}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       <FlatList
         ref={listRef}
@@ -882,14 +603,6 @@ export function QuranReaderScreen() {
         activeIndex={playingIndex}
         onActiveIndexChange={handleActiveIndexChange}
         playRequestId={playRequestId}
-      />
-
-      <TranslationSheet
-        visible={editionsOpen}
-        selected={prefs.translation}
-        onSelect={(identifier) => updatePrefs({ translation: identifier })}
-        onClose={() => setEditionsOpen(false)}
-        theme={theme}
       />
     </View>
   );

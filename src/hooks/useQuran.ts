@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   DEFAULT_RECITER,
-  DEFAULT_TRANSLATION,
   Surah,
   SurahAudio,
   SurahMeta,
@@ -27,9 +26,9 @@ export interface QuranResource<T> {
 }
 
 /**
- * State is keyed by the resource it describes so that switching surah or
- * translation cannot render the previous one's text for a frame: anything
- * stamped with a different key reads as "not loaded yet".
+ * State is keyed by the resource it describes so that switching surah cannot
+ * render the previous one's text for a frame: anything stamped with a different
+ * key reads as "not loaded yet".
  */
 interface ResourceState<T> {
   key: string;
@@ -148,38 +147,30 @@ export function useSurahList(): QuranResource<SurahMeta[]> {
 }
 
 /**
- * One surah's Arabic paired with a translation.
+ * One surah's Arabic text.
  *
  * @param surahNumber 1..114, or null to stay idle until the caller has one.
  */
-export function useSurah(
-  surahNumber: number | null,
-  translationEdition: string = DEFAULT_TRANSLATION
-): QuranResource<Surah> {
+export function useSurah(surahNumber: number | null): QuranResource<Surah> {
   const readCache = useCallback(
     (): Promise<Surah | null> =>
-      surahNumber === null
-        ? Promise.resolve(null)
-        : readCachedSurah(surahNumber, translationEdition),
-    [surahNumber, translationEdition]
+      surahNumber === null ? Promise.resolve(null) : readCachedSurah(surahNumber),
+    [surahNumber]
   );
 
   const fetchFresh = useCallback(
     (): Promise<Surah> =>
       surahNumber === null
         ? Promise.reject(new Error('No surah selected'))
-        : fetchSurah(surahNumber, translationEdition),
-    [surahNumber, translationEdition]
+        : fetchSurah(surahNumber),
+    [surahNumber]
   );
 
-  const writeCache = useCallback(
-    (surah: Surah) => writeCachedSurah(surah, translationEdition),
-    [translationEdition]
-  );
+  const writeCache = useCallback((surah: Surah) => writeCachedSurah(surah), []);
 
   return useCachedResource(
     surahNumber !== null,
-    `surah-${surahNumber}-${translationEdition}`,
+    `surah-${surahNumber}`,
     readCache,
     fetchFresh,
     writeCache,

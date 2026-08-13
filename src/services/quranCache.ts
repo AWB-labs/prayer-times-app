@@ -25,7 +25,7 @@ import { Surah, SurahAudio, SurahMeta } from './quranApi';
  * as a miss and are overwritten by the next fetch, so a shape change can never
  * surface as a half-old, half-new record.
  */
-export const CACHE_SCHEMA_VERSION = 1;
+export const CACHE_SCHEMA_VERSION = 2;
 
 const CACHE_DIR = new Directory(Paths.document, 'quran-cache');
 
@@ -39,8 +39,7 @@ interface CacheEnvelope<T> {
 /** Edition identifiers reach filenames, so anything path-like is neutralised. */
 const safeName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-const surahFileName = (surahNumber: number, translationEdition: string) =>
-  `surah-${surahNumber}-${safeName(translationEdition)}.json`;
+const surahFileName = (surahNumber: number) => `surah-${surahNumber}.json`;
 
 const audioFileName = (surahNumber: number, reciter: string) =>
   `audio-${surahNumber}-${safeName(reciter)}.json`;
@@ -114,11 +113,8 @@ export async function writeCachedSurahList(list: SurahMeta[]): Promise<void> {
 
 /* ── Surah text ─────────────────────────────────────────────────────────── */
 
-export async function readCachedSurah(
-  surahNumber: number,
-  translationEdition: string
-): Promise<Surah | null> {
-  const surah = await readEnvelope<Surah>(surahFileName(surahNumber, translationEdition));
+export async function readCachedSurah(surahNumber: number): Promise<Surah | null> {
+  const surah = await readEnvelope<Surah>(surahFileName(surahNumber));
   if (!surah) return null;
 
   // Guards a surah truncated mid-write: the declared count is the API's, so a
@@ -131,11 +127,8 @@ export async function readCachedSurah(
   return complete ? surah : null;
 }
 
-export async function writeCachedSurah(
-  surah: Surah,
-  translationEdition: string
-): Promise<void> {
-  await writeEnvelope(surahFileName(surah.number, translationEdition), surah);
+export async function writeCachedSurah(surah: Surah): Promise<void> {
+  await writeEnvelope(surahFileName(surah.number), surah);
 }
 
 /* ── Audio URLs ─────────────────────────────────────────────────────────── */
