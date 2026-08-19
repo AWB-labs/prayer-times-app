@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prayer Times",
     "slug": "prayer-times-app",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -11,6 +11,12 @@
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0e2a"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0fdc37b7-16fd-495d-8a99-a6ae39055bae"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "ios": {
       "supportsTablet": false,
@@ -87,7 +93,7 @@
             }
           }
         },
-        "projectId": "50f7c719-fe8e-42ce-860f-db0e463f08d6"
+        "projectId": "0fdc37b7-16fd-495d-8a99-a6ae39055bae"
       }
     },
     "owner": "badry22"
